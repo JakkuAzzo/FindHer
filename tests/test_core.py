@@ -54,3 +54,38 @@ class ShowTests(unittest.TestCase):
         from unittest.mock import patch
         with patch('findher.core._activate_application', return_value=True), patch('findher.core.windows', return_value=[{'pid': 42, 'window_id': '1'}]):
             self.assertIsNone(show_application(42, wait=0)['on_screen_verified'])
+
+class HeadlessTests(unittest.TestCase):
+    def test_chromium_flags_are_detected_without_exposing_arguments(self):
+        from findher.core import headless_status
+        self.assertTrue(headless_status('Google Chrome', ['/app/Chrome', '--headless=new', '--user-data-dir=/secret']))
+        self.assertTrue(headless_status('chromium', ['/bin/chromium', '--headless']))
+        self.assertFalse(headless_status('Google Chrome', ['/app/Chrome', '--profile-directory=Default']))
+        self.assertIsNone(headless_status('Google Chrome', None))
+        self.assertIsNone(headless_status('other-app', ['other-app', '--headless']))
+        self.assertIsNone(headless_status('Google Chrome', []))
+
+    def test_show_rejects_confirmed_headless_browser(self):
+        from findher.core import FindHerError, show_application
+        from unittest.mock import patch
+        with patch('findher.core._process_headless', return_value=True), patch('findher.core._activate_application') as activate:
+            with self.assertRaisesRegex(FindHerError, 'headless'):
+                show_application(42, wait=0)
+            activate.assert_not_called()
+
+    def test_windows_include_headless_status(self):
+        from findher.core import windows
+        from unittest.mock import patch
+        with patch('findher.core.sys.platform', 'darwin'), patch('findher.core._mac_windows', return_value=[{'pid': 42, 'window_id': '77'}]), patch('findher.core.processes', return_value=[{'pid': 42, 'process_name': 'Google Chrome', 'executable': '/Chrome', 'headless_detected': True}]):
+            self.assertTrue(windows(pid=42)[0]['headless_detected'])
+
+    def test_process_output_does_not_reveal_private_arguments(self):
+        from findher.core import processes
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        proc = SimpleNamespace(info={'pid': 42, 'name': 'Google Chrome', 'exe': '/Chrome', 'cmdline': ['/Chrome', '--headless', '--user-data-dir=/secret']})
+        with patch('findher.core.psutil.process_iter', return_value=[proc]):
+            result = processes(pid=42)
+        self.assertTrue(result[0]['headless_detected'])
+        self.assertNotIn('cmdline', result[0])
+        self.assertNotIn('/secret', str(result))

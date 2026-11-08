@@ -11,7 +11,7 @@ def find_processes(name: str = '', pid: int = 0) -> list[dict]:
 
 @mcp.tool()
 def find_windows(name: str = '', pid: int = 0) -> list[dict]:
-    """Find windows by process name, title, and/or process ID. On macOS results include off-screen windows; is_on_screen reports visibility."""
+    """Find windows by process name, title, and/or process ID. Includes headless_detected when recognizable; false does not prove interactive and null means unknown. On macOS results include off-screen windows; is_on_screen reports visibility."""
     return core.windows(name or None, pid or None)
 
 @mcp.tool()
