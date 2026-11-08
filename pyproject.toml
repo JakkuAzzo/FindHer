@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "findher-cli"
+version = "0.1.0"
+description = "Find running processes and desktop windows from a terminal or MCP client"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["psutil>=5.9", "mcp>=1.28,<2", "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'"]
+
+[project.scripts]
+findher = "findher.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
