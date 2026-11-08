@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Find running processes and desktop windows from a terminal or MCP client"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 dependencies = ["psutil>=5.9", "mcp>=1.28,<2", "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'"]
 
 [project.scripts]
