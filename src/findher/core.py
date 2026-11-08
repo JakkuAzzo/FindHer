@@ -79,12 +79,11 @@ def _windows_windows():
     user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
     user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
     user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    user32.IsIconic.argtypes = [wintypes.HWND]
     user32.EnumWindows.argtypes = [callback, wintypes.LPARAM]
     rows = []
     @callback
     def visit(hwnd, _):
-        if not user32.IsWindowVisible(hwnd):
-            return True
         rect = wintypes.RECT()
         pid = wintypes.DWORD()
         if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
@@ -93,6 +92,7 @@ def _windows_windows():
         buf = ctypes.create_unicode_buffer(user32.GetWindowTextLengthW(hwnd) + 1)
         user32.GetWindowTextW(hwnd, buf, len(buf))
         rows.append({'window_id': hex(hwnd), 'pid': pid.value, 'title': buf.value or None, 'desktop': None,
+                     'is_visible': bool(user32.IsWindowVisible(hwnd)), 'is_minimized': bool(user32.IsIconic(hwnd)),
                      'bounds': {'x': rect.left, 'y': rect.top, 'width': rect.right-rect.left, 'height': rect.bottom-rect.top}})
         return True
     if not user32.EnumWindows(visit, 0):
@@ -140,3 +140,72 @@ def launch(command, wait=2.0):
     except FindHerError as exc:
         found, error = [], str(exc)
     return {'pid': child.pid, 'running': child.poll() is None, 'windows': found, 'window_error': error}
+
+def _activate_application(pid, window_id=None):
+    """Request activation; application APIs can deny or ignore focus changes."""
+    if sys.platform == 'darwin':
+        if window_id is not None:
+            raise FindHerError('macOS activation targets an application, not a specific window; omit --window-id.')
+        from AppKit import NSRunningApplication, NSApplicationActivateIgnoringOtherApps
+        app = NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
+        if app is None:
+            raise FindHerError(f'No running macOS application found for PID {pid}.')
+        app.unhide()
+        if not app.activateWithOptions_(NSApplicationActivateIgnoringOtherApps):
+            raise FindHerError('macOS rejected the activation request.')
+        return True
+    candidates = windows(pid=pid)
+    if window_id is not None:
+        try:
+            wanted = int(window_id, 0)
+            candidates = [row for row in candidates if int(row['window_id'], 0) == wanted]
+        except ValueError as exc:
+            raise FindHerError('Window ID must be an integer or hexadecimal value.') from exc
+    if not candidates:
+        raise FindHerError('No matching window found for that PID and window ID.')
+    if len(candidates) != 1:
+        raise FindHerError('More than one window matches; provide --window-id.')
+    wid = candidates[0]['window_id']
+    if sys.platform == 'win32':
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        user32.IsIconic.argtypes = [wintypes.HWND]
+        user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+        hwnd = int(wid, 0)
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        elif not candidates[0]['is_visible']:
+            user32.ShowWindow(hwnd, 5)  # SW_SHOW
+        if not user32.SetForegroundWindow(hwnd):
+            raise FindHerError('Windows denied the foreground request; user interaction may be required.')
+        return True
+    if sys.platform.startswith('linux'):
+        try:
+            subprocess.run(['wmctrl', '-ia', wid], check=True, capture_output=True, text=True, timeout=5)
+        except (subprocess.SubprocessError, OSError) as exc:
+            raise FindHerError(f'Could not request X11 window activation: {exc}') from exc
+        return True
+    raise FindHerError(f'Unsupported platform: {sys.platform}')
+
+def show_application(pid, window_id=None, wait=1.0):
+    """Bring an application forward and independently check reported window state."""
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        raise FindHerError('PID must be a positive integer.')
+    if not 0 <= wait <= 10:
+        raise FindHerError('Wait must be between 0 and 10 seconds.')
+    _activate_application(pid, window_id)
+    time.sleep(wait)
+    try:
+        found = windows(pid=pid)
+    except FindHerError as exc:
+        return {'pid': pid, 'activation_requested': True, 'on_screen_verified': None,
+                'windows': [], 'window_error': str(exc)}
+    if window_id is not None:
+        wanted = int(window_id, 0)
+        found = [row for row in found if int(row['window_id'], 0) == wanted]
+    states = [row['is_on_screen'] for row in found if isinstance(row.get('is_on_screen'), bool)]
+    return {'pid': pid, 'activation_requested': True,
+            'on_screen_verified': any(states) if states else None,
+            'windows': found, 'window_error': None}
