@@ -19,7 +19,7 @@ class IntegrationTests(unittest.TestCase):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     tools = await session.list_tools()
-                    self.assertEqual({t.name for t in tools.tools}, {'find_processes', 'find_windows', 'launch_application'})
+                    self.assertEqual({t.name for t in tools.tools}, {'find_processes', 'find_windows', 'launch_application', 'show_application'})
                     result = await session.call_tool('find_processes', {'pid': os.getpid()})
                     self.assertFalse(result.isError)
                     self.assertIn(str(os.getpid()), str(result.content))

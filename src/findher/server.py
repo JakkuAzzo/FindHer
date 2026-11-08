@@ -19,5 +19,10 @@ def launch_application(command: list[str], wait: float = 2.0) -> dict:
     """Launch an executable with arguments (no shell), then return its PID and windows. This starts a real application."""
     return core.launch(command, wait)
 
+@mcp.tool()
+def show_application(pid: int, window_id: str = '', wait: float = 1.0) -> dict:
+    """Request foreground activation for an application. This changes desktop focus; inspect on_screen_verified before assuming it appeared. On macOS activation is app-wide."""
+    return core.show_application(pid, window_id or None, wait)
+
 def main():
     mcp.run(transport='stdio')

@@ -95,9 +95,27 @@ For example, on Windows PowerShell:
 
 `--wait` is a fixed delay in seconds (default 2, maximum 30) before looking for windows. The JSON result contains the spawned `pid`, whether that process is still `running`, any matching `windows`, and `window_error` if window enumeration failed. The tool runs the executable directly; it does not interpret shell operators or expand wildcards. Applications that hand off to an existing instance or a different process may open successfully but return no windows for the spawned PID. Search again by name or by the actual PID if that happens.
 
+## Bring an application forward
+
+To request that an application come to the foreground, use its PID from `findher processes`:
+
+```sh
+findher show --pid 1234
+```
+
+On Windows or X11, if the process has multiple windows, choose the `window_id` from `findher windows --pid 1234`:
+
+```sh
+findher show --pid 1234 --window-id 0x123456
+```
+
+This changes desktop focus. On macOS, activation is **application-wide** and `--window-id` is not supported; it may switch Spaces, and it does not guarantee that a minimized window is restored. Windows and X11 request activation of the selected window; operating systems or window managers can deny or ignore focus requests. Native Wayland activation is not supported. Applications with no window cannot be made visible by this command.
+
+The result includes `activation_requested` and a fresh list of `windows`. On macOS, `on_screen_verified` is true if an enumerated application window appears in the on-screen list, false if all reported windows are off screen, and null if it cannot be checked. On Windows and Linux it is currently null: a successful request alone does not prove that a particular window is visible or unobscured. Window states can change immediately after the check. The same action is available to MCP clients as `show_application`; it changes focus and should be invoked deliberately.
+
 ## Connect Codex and Claude
 
-The MCP server exposes `find_processes`, `find_windows`, and `launch_application`. It must run on the same computer and in the same graphical session as the applications being inspected. Launching starts a real application, so only connect clients you trust. FindHer is a local stdio server, not a hosted connector.
+The MCP server exposes `find_processes`, `find_windows`, `launch_application`, and `show_application`. It must run on the same computer and in the same graphical session as the applications being inspected. Launching starts a real application, so only connect clients you trust. FindHer is a local stdio server, not a hosted connector.
 
 ### Find the executable path
 
@@ -148,7 +166,7 @@ Add `findher` inside the existing `mcpServers` object, preserving other entries.
 }
 ```
 
-Replace the example path. On Windows, JSON requires escaped backslashes, for example `"C:\\Users\\you\\FindHer\\.venv\\Scripts\\findher.exe"`. Fully quit and reopen Claude Desktop, then check its local MCP server/connector settings for FindHer and its three tools. Ask Claude to find an application window to try it. See [Claude's setup and troubleshooting guidance](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
+Replace the example path. On Windows, JSON requires escaped backslashes, for example `"C:\\Users\\you\\FindHer\\.venv\\Scripts\\findher.exe"`. Fully quit and reopen Claude Desktop, then check its local MCP server/connector settings for FindHer and its four tools. Ask Claude to find an application window to try it. See [Claude's setup and troubleshooting guidance](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
 ### Claude Code
 
@@ -163,7 +181,7 @@ On Windows use the absolute path to `findher.exe` and quote it if it contains sp
 ## Platform support and limitations
 
 - **macOS:** Lists normal-layer windows in the current graphical session, including off-screen windows and auxiliary surfaces. `is_on_screen` is a snapshot and can change between queries; it does not establish that a window is visible, unobscured, or safe to click. macOS may omit titles without Screen Recording permission for the terminal or MCP host. Space numbers are not exposed. Bounds are in screen points.
-- **Windows:** Lists visible top-level windows in the current session using DPI-aware screen coordinates. Workspace numbers are not reported. Protected or higher-privilege processes may hide metadata.
+- **Windows:** Lists top-level windows, including hidden and minimized entries, in the current session using DPI-aware screen coordinates. `is_visible` is the window visibility flag; `is_minimized` indicates minimization. Neither proves that the window is on screen or unobscured. Workspace numbers are not reported. Protected or higher-privilege processes may hide metadata.
 - **Linux:** Uses `wmctrl` and an EWMH-compatible X11 window manager. On Wayland, XWayland may expose only X11 windows; native Wayland windows are not universally discoverable. Without an X11 display, window enumeration reports an error, while process listing can still work.
 
 Coordinates are platform-provided and are not necessarily physical pixels. Negative positions can occur with multiple monitors. Window IDs and PIDs can be reused, and windows can disappear between queries. FindHer does not capture screenshots or read window contents.

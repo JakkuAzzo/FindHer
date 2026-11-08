@@ -13,6 +13,10 @@ def main():
     p = sub.add_parser('launch', help='Launch an executable without a shell')
     p.add_argument('--wait', type=float, default=2)
     p.add_argument('command', nargs=argparse.REMAINDER, help='Executable and arguments, after --')
+    p = sub.add_parser('show', help='Request that an application or window come to the foreground')
+    p.add_argument('--pid', type=int, required=True)
+    p.add_argument('--window-id', help='Exact window ID (Windows and X11 only)')
+    p.add_argument('--wait', type=float, default=1)
     sub.add_parser('mcp', help='Run the MCP server over stdio')
     args = parser.parse_args()
     try:
@@ -20,7 +24,9 @@ def main():
             from .server import main as server_main
             server_main()
             return
-        if args.action == 'launch':
+        if args.action == 'show':
+            result = core.show_application(args.pid, args.window_id, args.wait)
+        elif args.action == 'launch':
             command = args.command
             if command and command[0] == '--':
                 command = command[1:]

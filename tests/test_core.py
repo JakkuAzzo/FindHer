@@ -32,3 +32,25 @@ class MacWindowTests(unittest.TestCase):
         with patch.dict(sys.modules, {'Quartz': q}):
             rows = _mac_windows()
         self.assertEqual([(r['window_id'], r['is_on_screen']) for r in rows], [('77', False), ('207', True)])
+
+class ShowTests(unittest.TestCase):
+    def test_rejects_missing_or_invalid_pid(self):
+        from findher.core import show_application, FindHerError
+        for pid in (0, -1):
+            with self.assertRaises(FindHerError):
+                show_application(pid)
+
+    def test_reports_visibility_separately_from_activation(self):
+        from findher.core import show_application
+        from unittest.mock import patch
+        with patch('findher.core._activate_application', return_value=True), patch('findher.core.windows', return_value=[{'pid': 42, 'window_id': '77', 'is_on_screen': False}]):
+            result = show_application(42, wait=0)
+        self.assertTrue(result['activation_requested'])
+        self.assertFalse(result['on_screen_verified'])
+        self.assertEqual(result['windows'][0]['window_id'], '77')
+
+    def test_visibility_unknown_if_platform_does_not_report_it(self):
+        from findher.core import show_application
+        from unittest.mock import patch
+        with patch('findher.core._activate_application', return_value=True), patch('findher.core.windows', return_value=[{'pid': 42, 'window_id': '1'}]):
+            self.assertIsNone(show_application(42, wait=0)['on_screen_verified'])
