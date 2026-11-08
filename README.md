@@ -55,7 +55,7 @@ findher processes --name firefox
 findher processes --pid 1234
 findher windows --pid 1234
 
-# Search visible windows by process name or window title
+# Search windows by process name or window title
 findher windows --name firefox
 ```
 
@@ -77,7 +77,7 @@ Results are JSON. For example, `findher windows --pid 1234` might return:
 ]
 ```
 
-The `bounds` describe the **window**, not the monitor's resolution. `desktop` is an X11 workspace number where available; otherwise it is `null`. Titles and executable paths may also be `null`. An empty array (`[]`) means there were no matches. Errors are written to standard error and the command exits with a nonzero status.
+The `bounds` describe the **window**, not the monitor's resolution. `desktop` is an X11 workspace number where available; otherwise it is `null`. Titles and executable paths may also be `null`. On macOS, `is_on_screen` indicates whether the window was in the on-screen inventory; off-screen windows and auxiliary surfaces may also be returned. An off-screen window is not necessarily actionable or on the current Space. An empty array (`[]`) means there were no matches. Errors are written to standard error and the command exits with a nonzero status.
 
 ## Launch an application
 
@@ -162,7 +162,7 @@ On Windows use the absolute path to `findher.exe` and quote it if it contains sp
 
 ## Platform support and limitations
 
-- **macOS:** Lists on-screen, normal-layer windows in the current graphical session. macOS may omit titles without Screen Recording permission for the terminal or MCP host. Space numbers are not exposed. Bounds are in screen points.
+- **macOS:** Lists normal-layer windows in the current graphical session, including off-screen windows and auxiliary surfaces. `is_on_screen` is a snapshot and can change between queries; it does not establish that a window is visible, unobscured, or safe to click. macOS may omit titles without Screen Recording permission for the terminal or MCP host. Space numbers are not exposed. Bounds are in screen points.
 - **Windows:** Lists visible top-level windows in the current session using DPI-aware screen coordinates. Workspace numbers are not reported. Protected or higher-privilege processes may hide metadata.
 - **Linux:** Uses `wmctrl` and an EWMH-compatible X11 window manager. On Wayland, XWayland may expose only X11 windows; native Wayland windows are not universally discoverable. Without an X11 display, window enumeration reports an error, while process listing can still work.
 
@@ -173,7 +173,7 @@ The portable test suite runs on all three operating systems in CI. Live graphica
 ## Troubleshooting
 
 - **`findher` is not found:** Activate the virtual environment or call its executable by absolute path. On Windows use `.venv\Scripts\findher.exe`.
-- **No windows for a PID:** Confirm the process still exists, has a visible window and is in the same graphical session. Some apps use a different process for their windows.
+- **No windows for a PID:** Confirm the process still exists, has a window and is in the same graphical session. On macOS, inspect `is_on_screen` before attempting any on-screen interaction. Some apps use a different process for their windows.
 - **Missing title or executable:** The OS may restrict access. On macOS, check Screen Recording permissions for the app hosting FindHer if window titles are missing.
 - **Linux reports no X11 display or `wmctrl`:** Install `wmctrl` and use an X11 session. A Wayland session may expose only XWayland windows.
 - **MCP server does not connect:** Verify the executable path, run `findher --help` from that environment, check the client logs and restart the client after configuration changes. GUI clients may not inherit the same environment variables as your terminal; Linux clients need access to the graphical session's display.

@@ -13,3 +13,22 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(filter_records(rows, name='EDIT', pid=42), rows[:1])
         self.assertEqual(filter_records(rows, name='hello'), rows[:1])
         self.assertEqual(filter_records(rows, pid=1), [])
+
+class MacWindowTests(unittest.TestCase):
+    def test_includes_offscreen_window_and_marks_visibility(self):
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from findher.core import _mac_windows
+        all_rows = [
+            {'kCGWindowNumber': 77, 'kCGWindowOwnerPID': 960, 'kCGWindowLayer': 0,
+             'kCGWindowName': 'Power Automate', 'kCGWindowBounds': {'X': 0, 'Y': 39, 'Width': 1800, 'Height': 1130}},
+            {'kCGWindowNumber': 207, 'kCGWindowOwnerPID': 969, 'kCGWindowLayer': 0,
+             'kCGWindowBounds': {'X': 10, 'Y': 20, 'Width': 400, 'Height': 300}},
+        ]
+        q = SimpleNamespace(kCGWindowListOptionAll=0, kCGWindowListOptionOnScreenOnly=1,
+                            kCGWindowListExcludeDesktopElements=16, kCGNullWindowID=0,
+                            CGWindowListCopyWindowInfo=lambda flags, _: [all_rows[1]] if flags & 1 else all_rows)
+        with patch.dict(sys.modules, {'Quartz': q}):
+            rows = _mac_windows()
+        self.assertEqual([(r['window_id'], r['is_on_screen']) for r in rows], [('77', False), ('207', True)])
