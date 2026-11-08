@@ -72,10 +72,13 @@ Results are JSON. For example, `findher windows --pid 1234` might return:
     "desktop": null,
     "bounds": {"x": 100, "y": 80, "width": 920, "height": 600},
     "process_name": "Example",
-    "executable": "/path/to/Example"
+    "executable": "/path/to/Example",
+    "headless_detected": null
   }
 ]
 ```
+
+`headless_detected` helps distinguish explicit Chromium-family headless browser processes from interactive candidates. `true` means a recognized `--headless` flag was found; `false` means a supported browser's readable command line had no recognized flag, not that the window is visible or usable. `null` means detection is unavailable or the process is not a supported browser. Other headless mechanisms may not be detected. FindHer does not output command-line arguments, which can contain private data. Do not infer that a matching page title is an authenticated browser session; confirm the process and target with your browser or desktop-control tool.
 
 The `bounds` describe the **window**, not the monitor's resolution. `desktop` is an X11 workspace number where available; otherwise it is `null`. Titles and executable paths may also be `null`. On macOS, `is_on_screen` indicates whether the window was in the on-screen inventory; off-screen windows and auxiliary surfaces may also be returned. An off-screen window is not necessarily actionable or on the current Space. An empty array (`[]`) means there were no matches. Errors are written to standard error and the command exits with a nonzero status.
 
@@ -113,7 +116,7 @@ On Windows or X11, if the process has multiple windows, choose the `window_id` f
 findher show --pid 1234 --window-id 0x123456
 ```
 
-This changes desktop focus. On macOS, activation is **application-wide** and `--window-id` is not supported; it may switch Spaces, and it does not guarantee that a minimized window is restored. Windows and X11 request activation of the selected window; operating systems or window managers can deny or ignore focus requests. Native Wayland activation is not supported. Applications with no window cannot be made visible by this command.
+This changes desktop focus. FindHer refuses to activate a browser when it detects an explicit headless flag; a headless browser cannot be made into an interactive window this way. An undetected or unknown status does not guarantee activation will work. On macOS, activation is **application-wide** and `--window-id` is not supported; it may switch Spaces, and it does not guarantee that a minimized window is restored. Windows and X11 request activation of the selected window; operating systems or window managers can deny or ignore focus requests. Native Wayland activation is not supported. Applications with no window cannot be made visible by this command.
 
 FindHer waits one second after the request before checking windows. To change the delay, pass `--wait` with a value from 0 to 10 seconds, for example `findher show --pid 1234 --wait 2`.
 

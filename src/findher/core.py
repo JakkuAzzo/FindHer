@@ -10,16 +10,34 @@ import psutil
 class FindHerError(Exception):
     pass
 
+def headless_status(name, command):
+    """Detect explicit Chromium headless flags without returning command arguments.
+
+    False means no recognized flag was found, not proof of a visible browser.
+    None means the process is unsupported or its command line was unavailable.
+    """
+    name = (name or '').casefold()
+    if not any(browser in name for browser in ('chrome', 'chromium', 'msedge', 'microsoft edge', 'brave')) or not command:
+        return None
+    return any(arg == '--headless' or (arg.startswith('--headless=') and arg.split('=', 1)[1].lower() not in ('false', '0')) for arg in command[1:])
+
+def _process_headless(pid):
+    try:
+        proc = psutil.Process(pid)
+        return headless_status(proc.name(), proc.cmdline())
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return None
+
 def processes(name=None, pid=None):
     result = []
-    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+    for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline']):
         try:
             p = proc.info
             if pid is not None and p['pid'] != pid:
                 continue
             if name and name.casefold() not in (p['name'] or '').casefold():
                 continue
-            result.append({'pid': p['pid'], 'process_name': p['name'], 'executable': p['exe']})
+            result.append({'pid': p['pid'], 'process_name': p['name'], 'executable': p['exe'], 'headless_detected': headless_status(p['name'], p.get('cmdline'))})
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return result
@@ -121,6 +139,7 @@ def windows(name=None, pid=None):
         info = lookup.get(row['pid'], {})
         row['process_name'] = info.get('process_name')
         row['executable'] = info.get('executable')
+        row['headless_detected'] = info.get('headless_detected')
     return filter_records(rows, name, pid)
 
 def launch(command, wait=2.0):
@@ -195,6 +214,8 @@ def show_application(pid, window_id=None, wait=1.0):
         raise FindHerError('PID must be a positive integer.')
     if not 0 <= wait <= 10:
         raise FindHerError('Wait must be between 0 and 10 seconds.')
+    if _process_headless(pid) is True:
+        raise FindHerError('This browser was started in headless mode and cannot be brought on screen. Find a separate interactive browser process instead.')
     _activate_application(pid, window_id)
     time.sleep(wait)
     try:
