@@ -225,4 +225,4 @@ python -m pip install .
 python -m unittest discover -s tests
 ```
 
-Contributions and issue reports are welcome. FindHer is released under the [MIT License](LICENSE).
+Contributions and issue reports are welcome. FindHer is distributed under the [Apache License 2.0](LICENSE), with attribution to BStudioB Ltd and FindHer contributors. Earlier code was released under the MIT License; its original notice remains in [LICENSE-MIT](LICENSE-MIT).
