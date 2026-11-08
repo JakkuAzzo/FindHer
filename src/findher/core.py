@@ -49,9 +49,11 @@ def _mac_windows():
         import Quartz as q
     except ImportError as exc:
         raise FindHerError('Install the macOS dependencies: reinstall findher-cli with its macOS dependencies') from exc
-    infos = q.CGWindowListCopyWindowInfo(q.kCGWindowListOptionOnScreenOnly | q.kCGWindowListExcludeDesktopElements, q.kCGNullWindowID)
-    if infos is None:
+    infos = q.CGWindowListCopyWindowInfo(q.kCGWindowListOptionAll | q.kCGWindowListExcludeDesktopElements, q.kCGNullWindowID)
+    visible = q.CGWindowListCopyWindowInfo(q.kCGWindowListOptionOnScreenOnly | q.kCGWindowListExcludeDesktopElements, q.kCGNullWindowID)
+    if infos is None or visible is None:
         raise FindHerError('No macOS window server is available in this session.')
+    visible_ids = {item.get('kCGWindowNumber') for item in visible}
     rows = []
     for item in infos:
         if item.get('kCGWindowLayer', 0) != 0:
@@ -59,6 +61,7 @@ def _mac_windows():
         b = item.get('kCGWindowBounds', {})
         rows.append({'window_id': str(item.get('kCGWindowNumber')), 'pid': item.get('kCGWindowOwnerPID'),
                      'title': item.get('kCGWindowName'), 'desktop': None,
+                     'is_on_screen': item.get('kCGWindowNumber') in visible_ids,
                      'bounds': {'x': b.get('X'), 'y': b.get('Y'), 'width': b.get('Width'), 'height': b.get('Height')}})
     return rows
 
