@@ -97,11 +97,15 @@ For example, on Windows PowerShell:
 
 ## Bring an application forward
 
-To request that an application come to the foreground, use its PID from `findher processes`:
+First find the application's PID, then inspect its windows and request that it come to the foreground:
 
 ```sh
+findher processes --name safari
+findher windows --pid 1234
 findher show --pid 1234
 ```
+
+Replace `safari` and `1234` with the application and PID from your own results. On macOS, check `is_on_screen` in the window results to distinguish windows currently in the on-screen inventory from off-screen windows. The list can include auxiliary surfaces as well as application windows.
 
 On Windows or X11, if the process has multiple windows, choose the `window_id` from `findher windows --pid 1234`:
 
@@ -111,7 +115,23 @@ findher show --pid 1234 --window-id 0x123456
 
 This changes desktop focus. On macOS, activation is **application-wide** and `--window-id` is not supported; it may switch Spaces, and it does not guarantee that a minimized window is restored. Windows and X11 request activation of the selected window; operating systems or window managers can deny or ignore focus requests. Native Wayland activation is not supported. Applications with no window cannot be made visible by this command.
 
-The result includes `activation_requested` and a fresh list of `windows`. On macOS, `on_screen_verified` is true if an enumerated application window appears in the on-screen list, false if all reported windows are off screen, and null if it cannot be checked. On Windows and Linux it is currently null: a successful request alone does not prove that a particular window is visible or unobscured. Window states can change immediately after the check. The same action is available to MCP clients as `show_application`; it changes focus and should be invoked deliberately.
+FindHer waits one second after the request before checking windows. To change the delay, pass `--wait` with a value from 0 to 10 seconds, for example `findher show --pid 1234 --wait 2`.
+
+The result includes `activation_requested` and a fresh list of `windows`. A shortened example is:
+
+```json
+{
+  "pid": 1234,
+  "activation_requested": true,
+  "on_screen_verified": true,
+  "windows": [
+    {"window_id": "77", "pid": 1234, "is_on_screen": true}
+  ],
+  "window_error": null
+}
+```
+
+The actual window entries also contain the other fields shown in [Find a process or window](#find-a-process-or-window). `window_error` contains an error message if the follow-up window query fails. On macOS, `on_screen_verified` is true if an enumerated application window appears in the on-screen list, false if all reported windows are off screen, and null if it cannot be checked. On Windows and Linux it is currently null: a successful request alone does not prove that a particular window is visible or unobscured. Window states can change immediately after the check. The same action is available to MCP clients as `show_application`; it changes focus and should be invoked deliberately.
 
 ## Connect Codex and Claude
 
